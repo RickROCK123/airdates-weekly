@@ -177,6 +177,7 @@ footer p{margin:0}
         <button class="chip" data-f="trend" aria-pressed="false">Trending</button>
         <button class="chip" data-f="mine" aria-pressed="false">My shows</button>
         <button class="chip" data-f="watch" aria-pressed="false">Watchlist</button>
+        <button class="chip" data-f="pf" aria-pressed="false">Premieres &amp; finales</button>
       </div>
       <label class="sr" for="pop">How many shows</label>
       <select class="sel" id="pop">
@@ -362,7 +363,7 @@ function weekItems(){
   const add=e=>{if(!e||!e.airstamp||!inWeek(e.airstamp))return;const show=S.shows[e.sid];if(!wanted(show)||!passesFilter(show))return;const g=e.sid+"|"+e.airstamp;(groups[g]=groups[g]||{show,airstamp:e.airstamp,eps:{}}).eps[e.id]=e;};
   Object.values(S.eps).forEach(add);
   Object.values(S.full).forEach(f=>{add(f.prev);add(f.next);});
-  return Object.values(groups).map(g=>{const eps=Object.values(g.eps).sort((a,b)=>(a.season-b.season)||((a.number||0)-(b.number||0)));return Object.assign(g,{eps,approx:!eps[0].airtime});});
+  return Object.values(groups).map(g=>{const eps=Object.values(g.eps).sort((a,b)=>(a.season-b.season)||((a.number||0)-(b.number||0)));return Object.assign(g,{eps,approx:!eps[0].airtime,kind:epKind(eps,g.show)});}).filter(g=>S.filter!=="pf"||!!g.kind);
 }
 function epLabel(eps){
   const a=eps[0],b=eps[eps.length-1];
@@ -370,7 +371,15 @@ function epLabel(eps){
   if(eps.length===1)return "S"+a.season+" "+num(a)+(a.name&&!/^episode \d+$/i.test(a.name)?" · "+a.name:"");
   return "S"+a.season+" "+num(a)+"–"+num(b);
 }
-function epKind(eps){if(eps.length>=4)return "Full season";const f=eps.find(e=>e.number===1);if(f)return f.season===1?"Series premiere":"Season premiere";return null;}
+function epKind(eps,show){
+  if(eps.length>=4)return "Full season";
+  const f=eps.find(e=>e.number===1);
+  if(f)return f.season===1?"Series premiere":"Season premiere";
+  // no known next episode yet, and the show hasn't ended outright: this is likely a season finale
+  const full=show&&S.full[show.id];
+  if(full&&!full.next&&show.status==="Running")return "Season finale";
+  return null;
+}
 function statusOf(id){
   const f=S.full[id];const show=S.shows[id];
   if(f&&f.next)return "Next: "+fmtWhen(f.next.airstamp);
@@ -409,7 +418,7 @@ function tags(show){
   return out;
 }
 function slot(it){
-  const s=it.show;const kind=epKind(it.eps);
+  const s=it.show;const kind=it.kind;
   return el("article",{class:"slot"},
     el("div",{class:"slot-time"},el("span",{class:"t"},fmtTime(it.airstamp)),it.approx?el("span",{class:"approx",title:"TVmaze lists the date but not the release time"},"≈ time"):null,kind?el("span",{class:"tag fin"},kind):null),
     el("h4",null,s.url?el("a",{href:s.url,target:"_blank",rel:"noopener"},s.name):s.name),
@@ -420,8 +429,8 @@ function slot(it){
 }
 function renderBoard(){
   const items=weekItems();const by={};W.days.forEach(d=>by[d]=[]);
-  let prem=0,full=0;
-  items.forEach(it=>{by[dayKey(it.airstamp)].push(it);const k=epKind(it.eps);if(k==="Full season")full++;else if(k)prem++;});
+  let prem=0,full=0,fin=0;
+  items.forEach(it=>{by[dayKey(it.airstamp)].push(it);const k=it.kind;if(k==="Full season")full++;else if(k==="Season finale")fin++;else if(k)prem++;});
   const today=new Date().toISOString().slice(0,10);
   const grid=el("div",{class:"board"});
   W.days.forEach(d=>{
@@ -434,10 +443,12 @@ function renderBoard(){
   $("#summary").replaceChildren(
     el("span",null,el("b",null,items.length),items.length===1?"episode drop":"episode drops"),
     el("span",null,el("b",null,prem),prem===1?"premiere":"premieres"),
+    el("span",null,el("b",null,fin),fin===1?"finale":"finales"),
     el("span",null,el("b",null,full),full===1?"full-season drop":"full-season drops"),
     el("span",null,el("b",null,Object.keys(S.ratings).length),"shows rated"));
 }
 function renderOff(){
+  if(S.filter==="pf"){$("#offList").replaceChildren(el("div",{class:"hint"},"Nothing here for the premieres & finales filter — these shows have no new episode this week. Switch to \"All\" to see them."));return;}
   const onBoard=new Set(weekItems().map(i=>i.show.id));
   const ids=[];const seen=new Set();
   const push=id=>{if(id==null||seen.has(id)||onBoard.has(id))return;const s=S.shows[id];if(!s||!passesFilter(s))return;seen.add(id);ids.push(id);};
