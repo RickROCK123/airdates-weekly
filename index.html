@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Airdates Weekly</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Airdates">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#131726" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f3f5fa" media="(prefers-color-scheme: light)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: a TV-listings sheet. Masthead and controls, a seven-day grid of episode slots, then off-air shows and picks. */
+:root{
+  --bg:#f3f5fa; --panel:#ffffff; --ink:#131726; --muted:#5b6176; --line:#dde1ec;
+  --accent:#2a46e0; --accent-ink:#ffffff;
+  --star:#d99a00; --star-off:#c9cedb;
+  --warn:#a35a00; --bad:#b4233a; --ok:#1d7a4f;
+  --imdb:#7a5b00; --imdb-bg:#fff3c4; --trend:#1d6b6b; --trend-bg:#d9f3f1; --mine:#2a46e0; --mine-bg:#e6eafe;
+  --today:#fff7d6;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0e1120; --panel:#161a2c; --ink:#e9ecf6; --muted:#9aa1b9; --line:#2a3049;
+  --accent:#8195ff; --accent-ink:#0e1120;
+  --star:#f5b73b; --star-off:#3d4461;
+  --warn:#f0a54a; --bad:#ff7a8c; --ok:#5fd19b;
+  --imdb:#f5c94a; --imdb-bg:#3a3214; --trend:#7fdcd4; --trend-bg:#163634; --mine:#a9b6ff; --mine-bg:#232a4d;
+  --today:#2a2717; color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+[hidden]{display:none!important}
+.wrap{max-width:1360px;margin:0 auto;padding:20px 16px 48px;display:grid;gap:26px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.mast{display:grid;gap:14px;border-bottom:3px solid var(--ink);padding-bottom:16px}
+.mast-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+h1{font-size:clamp(34px,6vw,58px);font-weight:900;font-stretch:72%;letter-spacing:-.01em;line-height:.95;text-transform:uppercase}
+.week{font-family:var(--f-display);font-stretch:85%;font-weight:700;font-size:clamp(17px,2.2vw,22px);display:grid;gap:4px;justify-items:end;text-align:right}
+.week small{font-family:var(--f-body);font-stretch:100%;font-weight:500;font-size:13px;color:var(--muted)}
+@media (max-width:600px){.week{justify-items:start;text-align:left}}
+.gmt{font-family:var(--f-mono);font-size:12px;font-weight:600;background:var(--ink);color:var(--bg);padding:3px 8px;border-radius:3px;letter-spacing:.04em}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.search{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:0 10px}
+.search input{border:0;background:transparent;padding:9px 0;width:100%;min-width:0;outline:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+select.sel{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:7px 8px;font-size:13px;font-weight:600}
+.btn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:8px 14px;font-weight:600;font-size:14px}
+.btn.ghost{background:transparent;color:var(--accent)}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.linkbtn{border:0;background:transparent;color:var(--accent);text-decoration:underline;padding:0;font-size:13px}
+.status{font-size:13px;color:var(--muted)}
+.status.err{color:var(--bad)}
+.summary{display:flex;flex-wrap:wrap;gap:8px 22px;font-size:14px;color:var(--muted)}
+.summary b{font-family:var(--f-mono);color:var(--ink);font-size:16px;margin-right:4px}
+.notice{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:6px;padding:10px 14px;font-size:14px}
+
+.panel{background:var(--panel);border:2px solid var(--ink);border-radius:8px;padding:16px;display:grid;gap:12px}
+.panel h3{font-size:22px;font-weight:900;font-stretch:78%;text-transform:uppercase}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.field{display:grid;gap:4px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.03em}
+.field input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px 10px;width:100%;min-width:0;font-family:var(--f-mono);font-size:13px}
+.note{font-size:12px;color:var(--muted);margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.results{display:grid;gap:6px}
+.result{display:flex;justify-content:space-between;gap:10px;align-items:center;border:1px solid var(--line);border-radius:6px;padding:8px 10px;flex-wrap:wrap}
+.result b{font-family:var(--f-display);font-stretch:88%;font-weight:800}
+
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+@media (min-width:1180px){.board{grid-template-columns:repeat(7,minmax(0,1fr))}}
+.day{background:var(--panel);display:flex;flex-direction:column;min-width:0}
+.day.today{background:var(--today)}
+.day-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+.day-h h3{font-size:20px;font-weight:800;font-stretch:80%;text-transform:uppercase;letter-spacing:.02em}
+.day-h span{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.day-h .now{color:var(--accent);font-weight:600}
+.empty-day{padding:14px 12px;color:var(--muted);font-size:13px}
+.slot{padding:10px 12px;display:grid;gap:5px;border-top:1px dashed var(--line)}
+.slot:first-child{border-top:0}
+.slot-time{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.t{font-family:var(--f-mono);font-weight:600;font-size:19px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.approx{font-size:11px;color:var(--warn);font-weight:600;border-bottom:1px dotted currentColor;cursor:help}
+.slot h4,.pick h4{margin:0;font-family:var(--f-display);font-weight:800;font-stretch:85%;font-size:17px;line-height:1.15}
+.slot h4 a,.pick h4 a{color:inherit;text-decoration:none}
+.slot h4 a:hover{text-decoration:underline}
+.ep{font-size:13px;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:3px;line-height:1.4;text-decoration:none}
+.tag.plat{border:1px solid var(--line);color:var(--ink);text-transform:none;letter-spacing:0;font-weight:600}
+.tag.imdb{background:var(--imdb-bg);color:var(--imdb)}
+.tag.trend{background:var(--trend-bg);color:var(--trend)}
+.tag.mine{background:var(--mine-bg);color:var(--mine)}
+.tag.fin{background:var(--ink);color:var(--bg)}
+.tag.rt{border:1px solid var(--line);color:var(--muted);text-transform:none;letter-spacing:0}
+
+.stars{display:inline-flex;align-items:center}
+.stars button{border:0;background:transparent;padding:2px 1px;font-size:17px;line-height:1;color:var(--star-off)}
+.stars button.on{color:var(--star)}
+.stars button:hover{transform:scale(1.15)}
+@media (prefers-reduced-motion:reduce){.stars button:hover{transform:none}}
+
+.sec{display:grid;gap:12px}
+.sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 16px;border-bottom:1px solid var(--ink);padding-bottom:6px}
+.sec-h h2{font-size:26px;font-weight:900;font-stretch:75%;text-transform:uppercase;letter-spacing:.01em}
+.sec-h p{margin:0;color:var(--muted);font-size:13px}
+.cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.show b{font-family:var(--f-display);font-stretch:88%;font-weight:800;font-size:15px}
+.picks{display:grid;gap:10px}
+.pick{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;gap:4px}
+.pick p{margin:0;font-size:13px;color:var(--muted)}
+.pick-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.hint{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:14px;color:var(--muted);font-size:14px}
+.skeleton{padding:30px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:8px}
+footer{font-size:13px;color:var(--muted);display:grid;gap:6px;border-top:1px solid var(--line);padding-top:14px}
+footer p{margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <div class="mast-top">
+      <h1>Airdates<br>Weekly</h1>
+      <div class="week">
+        <span id="weekLabel">This week</span>
+        <small><span class="gmt">ALL TIMES GMT</span></small>
+        <small><span id="status">Starting…</span> <button class="linkbtn" id="reloadBtn" type="button">Update now</button></small>
+      </div>
+    </div>
+    <div class="tools">
+      <label class="search"><span aria-hidden="true">⌕</span><span class="sr">Filter shows</span><input id="q" type="search" placeholder="Filter shows on this page" autocomplete="off"></label>
+      <div class="chips" role="group" aria-label="Show">
+        <button class="chip" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" data-f="trend" aria-pressed="false">Trending</button>
+        <button class="chip" data-f="mine" aria-pressed="false">My shows</button>
+      </div>
+      <label class="sr" for="pop">How many shows</label>
+      <select class="sel" id="pop">
+        <option value="98">Biggest shows only</option>
+        <option value="94">Popular shows</option>
+        <option value="85">More shows</option>
+      </select>
+      <label class="sr" for="lang">Languages</label>
+      <select class="sel" id="lang">
+        <option value="en">English-language</option>
+        <option value="all">All languages</option>
+      </select>
+      <button class="btn" id="addBtn" type="button">+ Add a show</button>
+      <button class="btn ghost" id="setBtn" type="button">Settings</button>
+    </div>
+    <div id="keyNotice" class="notice" hidden></div>
+    <section id="settings" class="panel" hidden aria-labelledby="setH">
+      <h3 id="setH">Settings</h3>
+      <p class="note">Keys are saved only in this browser. Both are free. Without them the page still shows live air times, but no trending list, IMDb ratings or tailored suggestions.</p>
+      <div class="fgrid">
+        <div class="field"><label for="tmdbKey">TMDB API key or read access token</label><input id="tmdbKey" autocomplete="off" spellcheck="false"><p class="note">Free account, then <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Settings → API</a>. Powers the trending list and suggestions.</p></div>
+        <div class="field"><label for="omdbKey">OMDb API key</label><input id="omdbKey" autocomplete="off" spellcheck="false"><p class="note">Free key (1,000 lookups a day) at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com</a>. Adds IMDb ratings.</p></div>
+      </div>
+      <div class="row">
+        <button class="btn" id="saveKeys" type="button">Save keys</button>
+        <button class="btn ghost" id="exportBtn" type="button">Back up ratings &amp; shows</button>
+        <label class="btn ghost" for="importFile" style="display:inline-block">Restore from backup</label>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <button class="linkbtn" id="clearCache" type="button">Clear saved schedule data</button>
+        <span class="status" id="setStatus"></span>
+      </div>
+    </section>
+    <section id="addPanel" class="panel" hidden aria-labelledby="addH">
+      <h3 id="addH">Add a show</h3>
+      <form id="addForm" class="row">
+        <label class="search" style="flex:1 1 260px"><span class="sr">Show title</span><input id="addQ" placeholder="Search TVmaze by title, e.g. Shrinking" autocomplete="off"></label>
+        <button class="btn" type="submit">Search</button>
+        <button class="btn ghost" type="button" id="addClose">Close</button>
+      </form>
+      <div class="results" id="addResults"></div>
+    </section>
+    <div class="summary" id="summary"></div>
+  </header>
+
+  <section class="sec" aria-labelledby="wk">
+    <div class="sec-h"><h2 id="wk">On this week</h2><p>New episodes Monday to Sunday. <span class="approx" title="The listing gives a date but no release time">≈ time</span> means no time is listed.</p></div>
+    <div id="board"><div class="skeleton">Loading this week's schedule from TVmaze…</div></div>
+  </section>
+
+  <div class="cols">
+    <section class="sec" aria-labelledby="off">
+      <div class="sec-h"><h2 id="off">No new episode this week</h2><p>Trending and saved shows with nothing new this week</p></div>
+      <div id="offList"></div>
+    </section>
+    <section class="sec" aria-labelledby="sug">
+      <div class="sec-h"><h2 id="sug">Suggested for you</h2><p>Built from your star ratings</p></div>
+      <div id="picks"></div>
+    </section>
+  </div>
+
+  <footer>
+    <p>Episode dates and times: <a href="https://www.tvmaze.com" target="_blank" rel="noopener">TVmaze</a> (CC BY-SA), checked each time you open the page. Trending list and suggestions: <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. IMDb ratings: <a href="https://www.omdbapi.com" target="_blank" rel="noopener">OMDb</a>.</p>
+    <p>Rotten Tomatoes doesn't offer a free feed of its TV scores, so each show links to its Rotten Tomatoes search page instead. Your ratings, saved shows and keys stay in this browser; use Back up in Settings to move them.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ================= helpers ================= */
+const $=s=>document.querySelector(s);
+const el=(tag,attrs,...kids)=>{const n=document.createElement(tag);if(attrs)for(const k in attrs){const v=attrs[k];if(v===false||v==null)continue;if(k==="class")n.className=v;else if(k.startsWith("on")&&typeof v==="function")n.addEventListener(k.slice(2),v);else n.setAttribute(k,v===true?"":v);}for(const c of kids){if(c==null||c===false)continue;n.append(c.nodeType?c:document.createTextNode(String(c)));}return n;};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const norm=t=>String(t||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]/g,"");
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(_){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true;}catch(_){return false;}}};
+const K={settings:"aw3-settings",ratings:"aw3-ratings",mine:"aw3-mine",cache:"aw3-cache"};
+const fmtTime=iso=>new Intl.DateTimeFormat("en-GB",{timeZone:"UTC",hour:"2-digit",minute:"2-digit"}).format(new Date(iso));
+const dayKey=iso=>new Date(iso).toISOString().slice(0,10);
+const fmtDay=(k,o)=>new Intl.DateTimeFormat("en-GB",Object.assign({timeZone:"UTC"},o)).format(new Date(k+"T12:00:00Z"));
+const fmtWhen=iso=>fmtDay(dayKey(iso),{weekday:"short",day:"numeric",month:"short"})+" "+fmtTime(iso)+" GMT";
+function currentWeek(){const n=new Date();const d=Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate());const dow=(new Date(d).getUTCDay()+6)%7;const mon=d-dow*864e5;const days=[];for(let i=0;i<7;i++)days.push(new Date(mon+i*864e5).toISOString().slice(0,10));return {start:mon,end:mon+7*864e5,days};}
+const yearOf=s=>s?+String(s).slice(0,4):0;
+
+/* ================= state ================= */
+const W=currentWeek();
+const S={
+  settings:Object.assign({tmdb:"",omdb:"",pop:"94",lang:"en"},LS.get(K.settings,{})),
+  ratings:LS.get(K.ratings,{}),          // key -> 1..5   (key = "t<tvmazeId>")
+  mine:LS.get(K.mine,[]),                // [{id,name}] tvmaze ids
+  filter:"all",q:"",
+  shows:{},                              // tvmazeId -> slim show
+  eps:{},                                // episode id -> slim ep
+  trend:[],                              // [{rank,tmdbId,name,year,vote,tvId|null,genreIds}]
+  full:{},                               // tvmazeId -> {next,prev}
+  imdb:{},                               // imdb id -> rating string
+  picks:null,picksMsg:"",
+  errors:{tmdb:"",omdb:""},
+  loading:true
+};
+let cache=LS.get(K.cache,{});
+function cget(k,ttl){const c=cache[k];return c&&Date.now()-c.at<ttl?c.v:undefined;}
+let cacheTimer=null;
+function cset(k,v){cache[k]={at:Date.now(),v};clearTimeout(cacheTimer);cacheTimer=setTimeout(saveCache,800);}
+function saveCache(){const now=Date.now();for(const k in cache){if(now-cache[k].at>8*864e5)delete cache[k];}if(!LS.set(K.cache,cache)){for(const k in cache){if(k.startsWith("sch:"))delete cache[k];}LS.set(K.cache,cache);}}
+const saveRatings=()=>LS.set(K.ratings,S.ratings), saveMine=()=>LS.set(K.mine,S.mine), saveSettings=()=>LS.set(K.settings,S.settings);
+
+/* ================= throttled fetch ================= */
+class KeyError extends Error{constructor(svc,msg){super(msg);this.svc=svc;}}
+const hosts={tvm:{gap:520,last:0,chain:Promise.resolve()},tmdb:{gap:60,last:0,chain:Promise.resolve()},omdb:{gap:120,last:0,chain:Promise.resolve()}};
+function hfetch(h,url,opt){const H=hosts[h];const p=H.chain.then(async()=>{const w=H.last+H.gap-Date.now();if(w>0)await sleep(w);H.last=Date.now();for(let i=0;i<3;i++){const r=await fetch(url,opt);if(r.status===429){await sleep(2500*(i+1));continue;}return r;}throw new Error("busy");});H.chain=p.catch(()=>{});return p;}
+
+/* ================= TVmaze ================= */
+const TV="https://api.tvmaze.com";
+function slimShow(s){if(!s)return null;const net=s.network||s.webChannel||{};return {id:s.id,name:s.name,type:s.type||"",genres:s.genres||[],weight:s.weight||0,rating:(s.rating&&s.rating.average)||null,net:net.name||"",country:(net.country&&net.country.code)||"",imdb:(s.externals&&s.externals.imdb)||null,url:s.url||"",premiered:s.premiered||"",status:s.status||"",lang:s.language||""};}
+function slimEp(e,sid){return {id:e.id,sid,season:e.season,number:e.number,name:e.name||"",airstamp:e.airstamp||"",airtime:e.airtime||""};}
+async function tvSchedule(kind,date){
+  const key="sch:"+kind+":"+date;const c=cget(key,3*36e5);if(c)return c;
+  const url=kind==="web"?TV+"/schedule/web?date="+date:TV+"/schedule?country="+kind+"&date="+date;
+  const r=await hfetch("tvm",url);if(!r.ok)throw new Error("TVmaze "+r.status);
+  const arr=await r.json();const out={eps:[],shows:{}};
+  (arr||[]).forEach(it=>{const s=it.show||(it._embedded&&it._embedded.show);if(!s||!it.airstamp)return;if((s.weight||0)<60)return;const ss=slimShow(s);out.shows[ss.id]=ss;out.eps.push(slimEp(it,ss.id));});
+  cset(key,out);return out;
+}
+function slimFull(d){const em=d._embedded||{};const p=e=>e&&e.airstamp?slimEp(e,d.id):null;return {show:slimShow(d),next:p(em.nextepisode),prev:p(em.previousepisode)};}
+async function tvFull(id,force){const key="full:"+id;const c=!force&&cget(key,6*36e5);if(c)return c;const r=await hfetch("tvm",TV+"/shows/"+id+"?embed[]=nextepisode&embed[]=previousepisode");if(!r.ok)return null;const v=slimFull(await r.json());cset(key,v);return v;}
+async function tvSingle(name){const key="ss:"+norm(name);const c=cget(key,12*36e5);if(c!==undefined)return c;const r=await hfetch("tvm",TV+"/singlesearch/shows?q="+encodeURIComponent(name)+"&embed[]=nextepisode&embed[]=previousepisode");const v=r.ok?slimFull(await r.json()):null;cset(key,v);return v;}
+async function tvSearch(q){const r=await hfetch("tvm",TV+"/search/shows?q="+encodeURIComponent(q));if(!r.ok)return [];return (await r.json()).map(x=>slimShow(x.show)).filter(Boolean);}
+
+/* ================= TMDB ================= */
+async function tmdb(path,params){
+  const key=S.settings.tmdb.trim();if(!key)return null;
+  const u=new URL("https://api.themoviedb.org/3"+path);Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k,v));
+  const opt={};if(key.startsWith("eyJ"))opt.headers={Authorization:"Bearer "+key,accept:"application/json"};else u.searchParams.set("api_key",key);
+  const r=await hfetch("tmdb",u.toString(),opt);
+  if(r.status===401)throw new KeyError("tmdb","TMDB didn't accept your key. Check it in Settings.");
+  if(!r.ok)throw new Error("TMDB "+r.status);
+  return r.json();
+}
+async function tmdbTrending(){const key="tmdb:trend";const c=cget(key,6*36e5);if(c)return c;const out=[];for(const page of [1,2]){const d=await tmdb("/trending/tv/week",{language:"en-GB",page});if(!d)return null;(d.results||[]).forEach(x=>out.push({tmdbId:x.id,name:x.name,year:yearOf(x.first_air_date),vote:x.vote_average||null,lang:x.original_language||"",genreIds:x.genre_ids||[]}));}cset(key,out);return out;}
+async function tmdbIdFor(show){const t=S.trend.find(x=>x.tvId===show.id);if(t)return t.tmdbId;if(!show.imdb)return null;const key="find:"+show.imdb;const c=cget(key,30*864e5);if(c!==undefined)return c;const d=await tmdb("/find/"+show.imdb,{external_source:"imdb_id"});const id=d&&d.tv_results&&d.tv_results[0]?d.tv_results[0].id:null;cset(key,id);return id;}
+async function tmdbRecs(id){const key="recs:"+id;const c=cget(key,5*864e5);if(c)return c;const d=await tmdb("/tv/"+id+"/recommendations",{language:"en-GB"});const v=((d&&d.results)||[]).slice(0,20).map(x=>({tmdbId:x.id,name:x.name,year:yearOf(x.first_air_date),vote:x.vote_average||null,overview:x.overview||"",lang:x.original_language||""}));cset(key,v);return v;}
+
+/* ================= OMDb ================= */
+async function omdbRating(imdbId){
+  const key=S.settings.omdb.trim();if(!key||!imdbId)return null;
+  const ck="omdb:"+imdbId;const c=cget(ck,7*864e5);if(c!==undefined)return c;
+  const r=await hfetch("omdb","https://www.omdbapi.com/?apikey="+encodeURIComponent(key)+"&i="+encodeURIComponent(imdbId));
+  if(r.status===401)throw new KeyError("omdb","OMDb didn't accept your key. Check it in Settings.");
+  const d=await r.json();
+  if(d.Response==="False"){if(/api key/i.test(d.Error||""))throw new KeyError("omdb","OMDb didn't accept your key. Check it in Settings.");if(/limit/i.test(d.Error||""))throw new KeyError("omdb","OMDb's daily limit is used up. IMDb ratings will return tomorrow.");cset(ck,null);return null;}
+  const v=d.imdbRating&&d.imdbRating!=="N/A"?d.imdbRating:null;cset(ck,v);return v;
+}
+
+/* ================= model ================= */
+const SKIP_TYPES=new Set(["Talk Show","News","Sports","Variety","Award Show","Game Show"]);
+const rkey=id=>"t"+id;
+const rating=id=>S.ratings[rkey(id)]||0;
+const isMine=id=>S.mine.some(m=>m.id===id);
+const trendOf=id=>S.trend.find(t=>t.tvId===id);
+function inWeek(iso){const t=new Date(iso).getTime();return t>=W.start&&t<W.end;}
+function wanted(show){
+  if(!show)return false;
+  if(isMine(show.id)||rating(show.id)||trendOf(show.id))return true;
+  if(SKIP_TYPES.has(show.type))return false;
+  if(S.settings.lang==="en"&&show.lang&&show.lang!=="English")return false;
+  return show.weight>=+S.settings.pop;
+}
+function passesFilter(show){
+  if(S.q&&!norm(show.name).includes(norm(S.q)))return false;
+  if(S.filter==="trend")return !!trendOf(show.id);
+  if(S.filter==="mine")return isMine(show.id)||!!rating(show.id);
+  return true;
+}
+function weekItems(){
+  const groups={};
+  const add=e=>{if(!e||!e.airstamp||!inWeek(e.airstamp))return;const show=S.shows[e.sid];if(!wanted(show)||!passesFilter(show))return;const g=e.sid+"|"+e.airstamp;(groups[g]=groups[g]||{show,airstamp:e.airstamp,eps:{}}).eps[e.id]=e;};
+  Object.values(S.eps).forEach(add);
+  Object.values(S.full).forEach(f=>{add(f.prev);add(f.next);});
+  return Object.values(groups).map(g=>{const eps=Object.values(g.eps).sort((a,b)=>(a.season-b.season)||((a.number||0)-(b.number||0)));return Object.assign(g,{eps,approx:!eps[0].airtime});});
+}
+function epLabel(eps){
+  const a=eps[0],b=eps[eps.length-1];
+  const num=e=>e.number!=null?"E"+e.number:"special";
+  if(eps.length===1)return "S"+a.season+" "+num(a)+(a.name&&!/^episode \d+$/i.test(a.name)?" · "+a.name:"");
+  return "S"+a.season+" "+num(a)+"–"+num(b);
+}
+function epKind(eps){if(eps.length>=4)return "Full season";const f=eps.find(e=>e.number===1);if(f)return f.season===1?"Series premiere":"Season premiere";return null;}
+function statusOf(id){
+  const f=S.full[id];const show=S.shows[id];
+  if(f&&f.next)return "Next: "+fmtWhen(f.next.airstamp);
+  if(show&&show.status==="Ended")return "Ended"+(f&&f.prev?"; last episode "+fmtDay(dayKey(f.prev.airstamp),{day:"numeric",month:"short",year:"numeric"}):"");
+  if(f&&f.prev)return "Last episode "+fmtDay(dayKey(f.prev.airstamp),{day:"numeric",month:"short",year:"numeric"})+"; next not announced";
+  return "No dates listed";
+}
+
+/* ================= rendering ================= */
+function setStatus(t,err){const s=$("#status");s.textContent=t;s.className=err?"status err":"status";}
+function stars(id,name){
+  const r=rating(id);const wrap=el("span",{class:"stars",role:"group","aria-label":"Your rating for "+name});
+  for(let i=1;i<=5;i++){
+    const b=el("button",{type:"button",class:i<=r?"on":"","aria-label":i+" star"+(i>1?"s":"")+(i===r?", current rating, press to clear":""),"aria-pressed":String(i===r)},"★");
+    b.addEventListener("click",()=>{const k=rkey(id);if(S.ratings[k]===i)delete S.ratings[k];else S.ratings[k]=i;saveRatings();render();schedulePicks();});
+    wrap.append(b);
+  }
+  return wrap;
+}
+function tags(show){
+  const out=[];
+  if(show.net)out.push(el("span",{class:"tag plat"},show.net+(show.country?" · "+show.country:"")));
+  const t=trendOf(show.id);if(t)out.push(el("span",{class:"tag trend",title:"Position on TMDB's trending TV list this week"},"Trending #"+t.rank));
+  const im=show.imdb&&S.imdb[show.imdb];
+  if(show.imdb)out.push(el("a",{class:"tag imdb",href:"https://www.imdb.com/title/"+show.imdb+"/",target:"_blank",rel:"noopener",title:im?"IMDb rating":"Open on IMDb"},"IMDb"+(im?" "+im:"")));
+  out.push(el("a",{class:"tag rt",href:"https://www.rottentomatoes.com/search?search="+encodeURIComponent(show.name),target:"_blank",rel:"noopener"},"Rotten Tomatoes ↗"));
+  if(isMine(show.id))out.push(el("span",{class:"tag mine"},"My show"));
+  return out;
+}
+function slot(it){
+  const s=it.show;const kind=epKind(it.eps);
+  return el("article",{class:"slot"},
+    el("div",{class:"slot-time"},el("span",{class:"t"},fmtTime(it.airstamp)),it.approx?el("span",{class:"approx",title:"TVmaze lists the date but not the release time"},"≈ time"):null,kind?el("span",{class:"tag fin"},kind):null),
+    el("h4",null,s.url?el("a",{href:s.url,target:"_blank",rel:"noopener"},s.name):s.name),
+    el("div",{class:"ep"},epLabel(it.eps)),
+    el("div",{class:"meta"},...tags(s)),
+    stars(s.id,s.name)
+  );
+}
+function renderBoard(){
+  const items=weekItems();const by={};W.days.forEach(d=>by[d]=[]);
+  let prem=0,full=0;
+  items.forEach(it=>{by[dayKey(it.airstamp)].push(it);const k=epKind(it.eps);if(k==="Full season")full++;else if(k)prem++;});
+  const today=new Date().toISOString().slice(0,10);
+  const grid=el("div",{class:"board"});
+  W.days.forEach(d=>{
+    const list=by[d].sort((a,b)=>a.airstamp.localeCompare(b.airstamp)||(b.show.weight-a.show.weight));
+    grid.append(el("div",{class:"day"+(d===today?" today":"")},
+      el("div",{class:"day-h"},el("h3",null,fmtDay(d,{weekday:"short"})),el("span",{class:d===today?"now":""},(d===today?"Today · ":"")+fmtDay(d,{day:"numeric",month:"short"}))),
+      list.length?el("div",null,...list.map(slot)):el("div",{class:"empty-day"},S.loading?"Loading…":(S.q||S.filter!=="all"?"Nothing matching.":"Nothing new."))));
+  });
+  $("#board").replaceChildren(grid);
+  $("#summary").replaceChildren(
+    el("span",null,el("b",null,items.length),items.length===1?"episode drop":"episode drops"),
+    el("span",null,el("b",null,prem),prem===1?"premiere":"premieres"),
+    el("span",null,el("b",null,full),full===1?"full-season drop":"full-season drops"),
+    el("span",null,el("b",null,Object.keys(S.ratings).length),"shows rated"));
+}
+function renderOff(){
+  const onBoard=new Set(weekItems().map(i=>i.show.id));
+  const ids=[];const seen=new Set();
+  const push=id=>{if(id==null||seen.has(id)||onBoard.has(id))return;const s=S.shows[id];if(!s||!passesFilter(s))return;seen.add(id);ids.push(id);};
+  S.mine.forEach(m=>push(m.id));
+  Object.keys(S.ratings).forEach(k=>push(+k.slice(1)));
+  S.trend.forEach(t=>push(t.tvId));
+  if(!ids.length){$("#offList").replaceChildren(el("div",{class:"hint"},S.loading?"Loading…":(S.settings.tmdb?"Every trending and saved show has an episode this week.":"Add a TMDB key in Settings to list trending shows here, or add your own shows.")));return;}
+  const tb=el("tbody");
+  ids.forEach(id=>{const s=S.shows[id];
+    tb.append(el("tr",null,
+      el("td",{class:"show"},el("b",null,s.url?el("a",{href:s.url,target:"_blank",rel:"noopener",style:"color:inherit;text-decoration:none"},s.name):s.name),el("div",{class:"meta",style:"margin-top:4px"},...tags(s))),
+      el("td",null,statusOf(id),isMine(id)?el("div",null,el("button",{class:"linkbtn",type:"button",onclick:()=>{S.mine=S.mine.filter(m=>m.id!==id);saveMine();render();}},"Remove from my shows")):null),
+      el("td",null,stars(id,s.name))));
+  });
+  $("#offList").replaceChildren(el("div",{class:"tablewrap"},el("table",null,el("thead",null,el("tr",null,el("th",null,"Show"),el("th",null,"Status"),el("th",null,"Your rating"))),tb)));
+}
+function renderPicks(){
+  const box=$("#picks");
+  const liked=Object.keys(S.ratings).filter(k=>S.ratings[k]>=4);
+  if(!Object.keys(S.ratings).length){box.replaceChildren(el("div",{class:"hint"},"Rate a few shows with the stars and suggestions appear here. Shows you give four or five stars drive the picks."));return;}
+  if(S.picks&&S.picks.length){
+    box.replaceChildren(el("div",{class:"picks"},...S.picks.map(p=>el("div",{class:"pick"},
+      el("div",{class:"pick-row"},el("h4",null,p.name+(p.year?" ("+p.year+")":"")),el("button",{class:"btn ghost small",type:"button",onclick:e=>addByName(p.name,p.year,e.currentTarget)},p.added?"Added":"Add to my shows")),
+      el("p",null,p.why),
+      p.overview?el("p",null,p.overview.length>160?p.overview.slice(0,157)+"…":p.overview):null,
+      p.vote?el("div",{class:"meta"},el("span",{class:"tag plat"},"TMDB "+p.vote.toFixed(1)+"/10")):null))));
+    return;
+  }
+  box.replaceChildren(el("div",{class:"hint"},S.picksMsg||(liked.length?"Finding suggestions…":"Give at least one show four or five stars to get suggestions.")));
+}
+function renderKeyNotice(){
+  const n=$("#keyNotice");const msgs=[];
+  if(!S.settings.tmdb&&!S.settings.omdb)msgs.push("Add your free TMDB and OMDb keys in Settings to switch on the trending list, IMDb ratings and suggestions.");
+  if(S.errors.tmdb)msgs.push(S.errors.tmdb);
+  if(S.errors.omdb)msgs.push(S.errors.omdb);
+  n.hidden=!msgs.length;n.textContent=msgs.join(" ");
+}
+function render(){renderBoard();renderOff();renderPicks();renderKeyNotice();}
+let rT=null;const renderSoon=()=>{clearTimeout(rT);rT=setTimeout(render,120);};
+
+/* ================= loading ================= */
+function mergeShow(s){if(s)S.shows[s.id]=Object.assign({},S.shows[s.id]||{},s);}
+function mergeFull(f){if(!f||!f.show)return;mergeShow(f.show);S.full[f.show.id]={next:f.next,prev:f.prev};}
+let loadRun=0;
+async function loadAll(force){
+  const run=++loadRun;S.loading=true;
+  if(force){for(const k in cache){if(k.startsWith("sch:")||k.startsWith("full:")||k.startsWith("ss:")||k==="tmdb:trend")delete cache[k];}saveCache();}
+  $("#weekLabel").textContent=fmtDay(W.days[0],{weekday:"short",day:"numeric",month:"short"})+" – "+fmtDay(W.days[6],{weekday:"short",day:"numeric",month:"short",year:"numeric"});
+  render();
+  // 1. trending (fast, independent host)
+  const trendP=(async()=>{try{const t=await tmdbTrending();S.errors.tmdb="";return t||[];}catch(e){S.errors.tmdb=e instanceof KeyError?e.message:"Couldn't reach TMDB, so the trending list is missing this time.";return [];}})();
+  // 2. schedules: the day before the week starts through Sunday, US, UK and streaming
+  const dates=[new Date(W.start-864e5).toISOString().slice(0,10)].concat(W.days);
+  const jobs=[];dates.forEach(d=>["web","US","GB"].forEach(k=>jobs.push([k,d])));
+  let done=0,failed=0;
+  for(const [k,d] of jobs){
+    if(run!==loadRun)return;
+    setStatus("Loading schedule from TVmaze… "+Math.round(done/jobs.length*100)+"%");
+    try{const r=await tvSchedule(k,d);Object.values(r.shows).forEach(mergeShow);r.eps.forEach(e=>{S.eps[e.id]=e;});}catch(e){failed++;}
+    done++;if(done%3===0)renderSoon();
+  }
+  if(failed===jobs.length){S.loading=false;setStatus("Couldn't reach TVmaze. Check your internet connection, then press Update now.",true);render();return;}
+  // 3. match trending to TVmaze
+  const trend=await trendP;const list=[];
+  const byName={};Object.values(S.shows).forEach(s=>{(byName[norm(s.name)]=byName[norm(s.name)]||[]).push(s);});
+  for(let i=0;i<trend.length;i++){
+    if(run!==loadRun)return;
+    const t=trend[i];if(S.settings.lang==="en"&&t.lang&&t.lang!=="en"&&!isMine(t.tvId))continue;
+    let cand=(byName[norm(t.name)]||[]).slice();
+    if(cand.length>1&&t.year){const y=cand.filter(s=>Math.abs(yearOf(s.premiered)-t.year)<=1);if(y.length)cand=y;}
+    let tvId=cand.length?cand.sort((a,b)=>b.weight-a.weight)[0].id:null;
+    if(!tvId){setStatus("Matching trending shows… "+(i+1)+" of "+trend.length);try{const f=await tvSingle(t.name);if(f&&f.show&&(!t.year||!yearOf(f.show.premiered)||Math.abs(yearOf(f.show.premiered)-t.year)<=1)){mergeFull(f);tvId=f.show.id;}}catch(_){}}
+    list.push(Object.assign({},t,{rank:list.length+1,tvId}));
+  }
+  S.trend=list.filter(t=>t.tvId!=null).map((t,i)=>Object.assign(t,{rank:i+1}));
+  renderSoon();
+  // 4. next/previous episodes for saved, rated and trending shows
+  const need=new Set(S.mine.map(m=>m.id));Object.keys(S.ratings).forEach(k=>need.add(+k.slice(1)));S.trend.forEach(t=>need.add(t.tvId));
+  let n=0;
+  for(const id of need){
+    if(run!==loadRun)return;
+    if(!S.full[id]){setStatus("Checking next episodes… "+(++n)+" of "+need.size);try{mergeFull(await tvFull(id,false));}catch(_){}renderSoon();}
+  }
+  S.loading=false;
+  setStatus("Updated "+fmtTime(new Date().toISOString())+" GMT"+(failed?" · part of the schedule didn't load":""));
+  render();
+  loadRatings(run);
+  schedulePicks();
+}
+async function loadRatings(run){
+  if(!S.settings.omdb)return;
+  const ids=new Set();weekItems().forEach(i=>{if(i.show.imdb)ids.add(i.show.imdb);});
+  Object.values(S.shows).forEach(s=>{if(s.imdb&&(isMine(s.id)||rating(s.id)||trendOf(s.id)))ids.add(s.imdb);});
+  for(const id of ids){
+    if(run!==loadRun)return;
+    if(S.imdb[id]!==undefined)continue;
+    try{S.imdb[id]=await omdbRating(id);S.errors.omdb="";}catch(e){if(e instanceof KeyError){S.errors.omdb=e.message;renderKeyNotice();return;}}
+    renderSoon();
+  }
+}
+
+/* ================= suggestions ================= */
+let pT=null,pickRun=0;
+function schedulePicks(){clearTimeout(pT);pT=setTimeout(buildPicks,900);}
+async function buildPicks(){
+  const run=++pickRun;
+  const rated=Object.keys(S.ratings).map(k=>({id:+k.slice(1),r:S.ratings[k]})).filter(x=>S.shows[x.id]);
+  const liked=rated.filter(x=>x.r>=4).sort((a,b)=>b.r-a.r).slice(0,5);
+  if(!liked.length){S.picks=null;S.picksMsg="";renderPicks();return;}
+  const exclude=new Set(rated.map(x=>norm(S.shows[x.id].name)).concat(S.mine.map(m=>norm(m.name))));
+  if(S.settings.tmdb){
+    S.picksMsg="Finding suggestions…";renderPicks();
+    try{
+      const disliked=rated.filter(x=>x.r<=2);
+      const score={},because={};
+      for(const x of liked){
+        const tid=await tmdbIdFor(S.shows[x.id]);if(!tid)continue;
+        const recs=await tmdbRecs(tid);
+        recs.forEach((p,i)=>{const k=norm(p.name);if(exclude.has(k))return;if(S.settings.lang==="en"&&p.lang&&p.lang!=="en")return;score[k]=score[k]||{p,s:0};score[k].s+=(x.r-3)*(1-i/25)+(p.vote||0)/40;(because[k]=because[k]||[]).push(S.shows[x.id].name);});
+      }
+      for(const x of disliked){const tid=await tmdbIdFor(S.shows[x.id]);if(!tid)continue;(await tmdbRecs(tid)).forEach(p=>{const k=norm(p.name);if(score[k])score[k].s-=1.2;});}
+      if(run!==pickRun)return;
+      S.picks=Object.keys(score).filter(k=>score[k].s>0).sort((a,b)=>score[b].s-score[a].s).slice(0,8).map(k=>Object.assign({},score[k].p,{why:"Because you liked "+[...new Set(because[k])].slice(0,2).join(" and ")+"."}));
+      S.picksMsg=S.picks.length?"":"No suggestions found yet. Rate a few more shows.";
+      S.errors.tmdb="";
+    }catch(e){S.picks=null;S.picksMsg=e instanceof KeyError?e.message:"Couldn't reach TMDB for suggestions just now.";}
+    renderPicks();return;
+  }
+  // without TMDB: genre match among shows on this week's schedule
+  const w={};rated.forEach(x=>(S.shows[x.id].genres||[]).forEach(g=>w[g]=(w[g]||0)+(x.r-3)));
+  const seen=new Set();
+  const cands=weekItems().map(i=>i.show).concat(Object.values(S.shows).filter(s=>s.weight>=90)).filter(s=>{if(seen.has(s.id)||rating(s.id)||isMine(s.id))return false;seen.add(s.id);return !SKIP_TYPES.has(s.type);});
+  S.picks=cands.map(s=>{let sc=0;(s.genres||[]).forEach(g=>sc+=w[g]||0);const like=liked.find(x=>(S.shows[x.id].genres||[]).some(g=>s.genres.includes(g)));return {name:s.name,year:yearOf(s.premiered),vote:null,overview:"",s:sc+s.weight/200,why:like?"Same genres as "+S.shows[like.id].name+".":"Matches genres you rate highly.",tvId:s.id};}).filter(p=>p.s>0.5).sort((a,b)=>b.s-a.s).slice(0,6);
+  S.picksMsg=S.picks.length?"":"Nothing on this week's schedule matches your ratings yet. Add a TMDB key in Settings for wider suggestions.";
+  renderPicks();
+}
+async function addByName(name,year,btn){
+  if(btn){btn.disabled=true;btn.textContent="Adding…";}
+  try{
+    const res=await tvSearch(name);
+    let pick=res.find(s=>norm(s.name)===norm(name)&&(!year||Math.abs(yearOf(s.premiered)-year)<=1))||res.find(s=>!year||Math.abs(yearOf(s.premiered)-year)<=1)||null;
+    if(!pick){openAdd(name);return;}
+    await addShow(pick);
+    if(S.picks){const p=S.picks.find(x=>x.name===name);if(p)p.added=true;}
+    renderPicks();
+  }catch(_){if(btn){btn.disabled=false;btn.textContent="Try again";}}
+}
+async function addShow(show){
+  if(!isMine(show.id)){S.mine.push({id:show.id,name:show.name});saveMine();}
+  mergeShow(show);
+  try{mergeFull(await tvFull(show.id,true));}catch(_){}
+  render();
+  if(show.imdb&&S.settings.omdb&&S.imdb[show.imdb]===undefined){try{S.imdb[show.imdb]=await omdbRating(show.imdb);render();}catch(e){if(e instanceof KeyError){S.errors.omdb=e.message;renderKeyNotice();}}}
+}
+
+/* ================= add panel / settings ================= */
+function openAdd(prefill){
+  $("#addPanel").hidden=false;$("#settings").hidden=true;
+  if(prefill!=null)$("#addQ").value=prefill;
+  $("#addQ").focus();
+  if($("#addQ").value.trim())runSearch();
+}
+async function runSearch(){
+  const q=$("#addQ").value.trim();if(!q)return;
+  const box=$("#addResults");box.replaceChildren(el("p",{class:"note"},"Searching TVmaze…"));
+  try{
+    const res=(await tvSearch(q)).slice(0,8);
+    if(!res.length){box.replaceChildren(el("p",{class:"note"},"No shows found for “"+q+"”. Try a shorter title."));return;}
+    box.replaceChildren(...res.map(s=>el("div",{class:"result"},
+      el("div",null,el("b",null,s.name)," ",el("span",{class:"note",style:"display:inline"},[yearOf(s.premiered)||"",s.net,s.status].filter(Boolean).join(" · "))),
+      el("button",{class:"btn small",type:"button",disabled:isMine(s.id),onclick:async e=>{e.currentTarget.disabled=true;e.currentTarget.textContent="Added";await addShow(s);}},isMine(s.id)?"Added":"Add"))));
+  }catch(_){box.replaceChildren(el("p",{class:"note"},"Couldn't reach TVmaze. Check your connection and try again."));}
+}
+$("#addBtn").addEventListener("click",()=>openAdd(S.q||null));
+$("#addClose").addEventListener("click",()=>{$("#addPanel").hidden=true;});
+$("#addForm").addEventListener("submit",e=>{e.preventDefault();runSearch();});
+$("#setBtn").addEventListener("click",()=>{const p=$("#settings");p.hidden=!p.hidden;$("#addPanel").hidden=true;$("#tmdbKey").value=S.settings.tmdb;$("#omdbKey").value=S.settings.omdb;});
+$("#saveKeys").addEventListener("click",()=>{S.settings.tmdb=$("#tmdbKey").value.trim();S.settings.omdb=$("#omdbKey").value.trim();saveSettings();S.errors={tmdb:"",omdb:""};S.imdb={};delete cache["tmdb:trend"];$("#setStatus").textContent="Saved. Reloading…";loadAll(false).then(()=>{$("#setStatus").textContent="";});});
+$("#clearCache").addEventListener("click",()=>{cache={};LS.set(K.cache,cache);$("#setStatus").textContent="Cleared. Reloading…";S.eps={};S.full={};loadAll(false).then(()=>{$("#setStatus").textContent="";});});
+$("#exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({app:"airdates-weekly",version:1,exported:new Date().toISOString(),ratings:S.ratings,mine:S.mine},null,2)],{type:"application/json"});
+  const a=el("a",{href:URL.createObjectURL(blob),download:"airdates-backup-"+new Date().toISOString().slice(0,10)+".json"});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+  $("#setStatus").textContent="Backup file downloaded.";
+});
+$("#importFile").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(d.app!=="airdates-weekly")throw 0;
+    Object.assign(S.ratings,d.ratings||{});(d.mine||[]).forEach(m=>{if(m&&typeof m.id==="number"&&!isMine(m.id))S.mine.push({id:m.id,name:String(m.name||"")});});
+    saveRatings();saveMine();$("#setStatus").textContent="Restored. Reloading…";loadAll(false).then(()=>{$("#setStatus").textContent="";});
+  }catch(_){$("#setStatus").textContent="That file isn't an Airdates Weekly backup.";}};rd.readAsText(f);e.target.value="";
+});
+$("#reloadBtn").addEventListener("click",()=>{S.eps={};S.full={};loadAll(true);});
+$("#q").addEventListener("input",e=>{S.q=e.target.value.trim();render();});
+document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{S.filter=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",String(x===c)));render();}));
+$("#pop").value=S.settings.pop;$("#lang").value=S.settings.lang;
+$("#pop").addEventListener("change",e=>{S.settings.pop=e.target.value;saveSettings();render();loadRatings(loadRun);});
+$("#lang").addEventListener("change",e=>{S.settings.lang=e.target.value;saveSettings();loadAll(false);});
+
+if(!S.settings.tmdb&&!S.settings.omdb){$("#settings").hidden=false;}
+if(!window.fetch){setStatus("This browser is too old to load the schedule.",true);}else loadAll(false);
+})();
+</script>
+</body>
+</html>
