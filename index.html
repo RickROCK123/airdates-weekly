@@ -126,6 +126,19 @@ select.sel{border:1px solid var(--line);background:var(--panel);border-radius:6p
 @media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
 .tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
 table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+@media (max-width:640px){
+  table{min-width:0}
+  thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  table,tbody,tr,td{display:block;width:100%}
+  tr{border-top:1px solid var(--line);padding:10px 12px}
+  tr:first-child{border-top:0}
+  td{padding:4px 0}
+  td[data-th]::before{content:attr(data-th);display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+}
+@media (min-width:1600px){
+  body{font-size:17px}
+  .wrap{max-width:1560px}
+}
 th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;background:var(--bg)}
 tr:last-child td{border-bottom:0}
@@ -431,8 +444,8 @@ function renderOff(){
   ids.forEach(id=>{const s=S.shows[id];
     tb.append(el("tr",null,
       el("td",{class:"show"},el("b",null,s.url?el("a",{href:s.url,target:"_blank",rel:"noopener",style:"color:inherit;text-decoration:none"},s.name):s.name),el("div",{class:"meta",style:"margin-top:4px"},...tags(s))),
-      el("td",null,statusOf(id),isMine(id)?el("div",null,el("button",{class:"linkbtn",type:"button",onclick:()=>{S.mine=S.mine.filter(m=>m.id!==id);saveMine();render();}},"Remove from my shows")):null,el("div",{style:"margin-top:4px"},watchBtn(s))),
-      el("td",null,stars(id,s.name))));
+      el("td",{"data-th":"Status"},statusOf(id),isMine(id)?el("div",null,el("button",{class:"linkbtn",type:"button",onclick:()=>{S.mine=S.mine.filter(m=>m.id!==id);saveMine();render();}},"Remove from my shows")):null,el("div",{style:"margin-top:4px"},watchBtn(s))),
+      el("td",{"data-th":"Your rating"},stars(id,s.name))));
   });
   $("#offList").replaceChildren(el("div",{class:"tablewrap"},el("table",null,el("thead",null,el("tr",null,el("th",null,"Show"),el("th",null,"Status"),el("th",null,"Your rating"))),tb)));
 }
