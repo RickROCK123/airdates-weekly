@@ -155,6 +155,17 @@ td.show b{font-family:var(--f-display);font-stretch:88%;font-weight:800;font-siz
 .pick-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 .hint{background:var(--panel);border:1px dashed var(--line);border-radius:8px;padding:14px;color:var(--muted);font-size:14px}
 .skeleton{padding:30px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--line);border-radius:8px}
+#sportList{display:grid;gap:18px}
+.sport-group{display:grid;gap:8px}
+.sport-group-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 14px}
+.sport-group-h h3{font-size:16px;font-weight:800;font-stretch:85%;text-transform:uppercase;letter-spacing:.02em}
+.sport-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.sport-row.live{border-color:var(--bad)}
+.sport-time{font-family:var(--f-mono);font-size:12px;color:var(--muted);min-width:94px}
+.sport-teams{font-weight:700;flex:1 1 auto;min-width:160px}
+.sport-score{font-family:var(--f-mono);font-weight:700;font-variant-numeric:tabular-nums}
+.sport-status{font-size:12px;color:var(--muted)}
+.tag.live{background:var(--bad);color:#fff}
 footer{font-size:13px;color:var(--muted);display:grid;gap:6px;border-top:1px solid var(--line);padding-top:14px}
 footer p{margin:0}
 </style>
@@ -200,6 +211,7 @@ footer p{margin:0}
       <div class="fgrid">
         <div class="field"><label for="tmdbKey">TMDB API key or read access token</label><input id="tmdbKey" autocomplete="off" spellcheck="false"><p class="note">Free account, then <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Settings → API</a>. Powers the trending list and suggestions.</p></div>
         <div class="field"><label for="omdbKey">OMDb API key</label><input id="omdbKey" autocomplete="off" spellcheck="false"><p class="note">Free key (1,000 lookups a day) at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com</a>. Adds IMDb ratings.</p></div>
+        <div class="field"><label for="cricketKey">CricketData.org API key (optional)</label><input id="cricketKey" autocomplete="off" spellcheck="false"><p class="note">Free key (100 calls a day) at <a href="https://cricketdata.org/" target="_blank" rel="noopener">cricketdata.org</a>. Adds Cricket World Cup fixtures and scores below.</p></div>
       </div>
       <div class="row">
         <button class="btn" id="saveKeys" type="button">Save keys</button>
@@ -225,6 +237,11 @@ footer p{margin:0}
   <section class="sec" aria-labelledby="wk">
     <div class="sec-h"><h2 id="wk">On this week</h2><p>New episodes Monday to Sunday. <span class="approx" title="The listing gives a date but no release time">≈ time</span> means no time is listed.</p><div class="board-nav"><button class="btn ghost small" id="boardPrev" type="button" aria-label="Scroll to earlier days">‹ Prev</button><button class="btn ghost small" id="boardNext" type="button" aria-label="Scroll to later days">Next ›</button></div></div>
     <div id="board"><div class="skeleton">Loading this week's schedule from TVmaze…</div></div>
+  </section>
+
+  <section class="sec" aria-labelledby="sport">
+    <div class="sec-h"><h2 id="sport">Live sport this week</h2><p>Premier League, Champions League, World Cup and NBA fixtures, from ESPN. No free source gives broadcast channels, so each group links out to check where to watch.</p></div>
+    <div id="sportList"><div class="skeleton">Loading fixtures…</div></div>
   </section>
 
   <div class="cols">
@@ -264,7 +281,7 @@ const yearOf=s=>s?+String(s).slice(0,4):0;
 /* ================= state ================= */
 const W=currentWeek();
 const S={
-  settings:Object.assign({tmdb:"",omdb:"",pop:"94",lang:"en"},LS.get(K.settings,{})),
+  settings:Object.assign({tmdb:"",omdb:"",cricket:"",pop:"94",lang:"en"},LS.get(K.settings,{})),
   ratings:LS.get(K.ratings,{}),          // key -> 1..10  (key = "t<tvmazeId>")
   mine:LS.get(K.mine,[]),                // [{id,name}] tvmaze ids
   watch:LS.get(K.watch,[]),              // [{id,name}] tvmaze ids, shows you plan to watch
@@ -275,7 +292,10 @@ const S={
   full:{},                               // tvmazeId -> {next,prev}
   imdb:{},                               // imdb id -> rating string
   picks:null,picksMsg:"",
-  errors:{tmdb:"",omdb:""},
+  sport:{},                              // competition key -> [events] (football/basketball, from ESPN)
+  cricketEvents:[],                      // Cricket World Cup matches, from CricketData.org
+  sportLoading:true,
+  errors:{tmdb:"",omdb:"",cricket:""},
   loading:true
 };
 if(LS.get(K.scale,5)<10){                 // one-time migration: ratings used to be out of 5
@@ -291,7 +311,7 @@ const saveRatings=()=>LS.set(K.ratings,S.ratings), saveMine=()=>LS.set(K.mine,S.
 
 /* ================= throttled fetch ================= */
 class KeyError extends Error{constructor(svc,msg){super(msg);this.svc=svc;}}
-const hosts={tvm:{gap:520,last:0,chain:Promise.resolve()},tmdb:{gap:60,last:0,chain:Promise.resolve()},omdb:{gap:120,last:0,chain:Promise.resolve()}};
+const hosts={tvm:{gap:520,last:0,chain:Promise.resolve()},tmdb:{gap:60,last:0,chain:Promise.resolve()},omdb:{gap:120,last:0,chain:Promise.resolve()},espn:{gap:150,last:0,chain:Promise.resolve()},cricket:{gap:120,last:0,chain:Promise.resolve()}};
 function hfetch(h,url,opt){const H=hosts[h];const p=H.chain.then(async()=>{const w=H.last+H.gap-Date.now();if(w>0)await sleep(w);H.last=Date.now();for(let i=0;i<3;i++){const r=await fetch(url,opt);if(r.status===429){await sleep(2500*(i+1));continue;}return r;}throw new Error("busy");});H.chain=p.catch(()=>{});return p;}
 
 /* ================= TVmaze ================= */
@@ -334,6 +354,80 @@ async function omdbRating(imdbId){
   const d=await r.json();
   if(d.Response==="False"){if(/api key/i.test(d.Error||""))throw new KeyError("omdb","OMDb didn't accept your key. Check it in Settings.");if(/limit/i.test(d.Error||""))throw new KeyError("omdb","OMDb's daily limit is used up. IMDb ratings will return tomorrow.");cset(ck,null);return null;}
   const v=d.imdbRating&&d.imdbRating!=="N/A"?d.imdbRating:null;cset(ck,v);return v;
+}
+
+/* ================= live sport (ESPN + CricketData.org) ================= */
+const SPORT_COMPETITIONS=[
+  {key:"eng.1",sport:"soccer",league:"eng.1",name:"Premier League"},
+  {key:"uefa.champions",sport:"soccer",league:"uefa.champions",name:"Champions League"},
+  {key:"fifa.world",sport:"soccer",league:"fifa.world",name:"World Cup"},
+  {key:"nba",sport:"basketball",league:"nba",name:"NBA"}
+];
+const watchLink=name=>"https://www.google.com/search?q="+encodeURIComponent(name+" TV channel schedule");
+async function espnScoreboard(sportPath,leagueSlug,dateStr){
+  const key="sport:"+sportPath+":"+leagueSlug+":"+dateStr;const c=cget(key,10*60e3);if(c)return c;
+  const url="https://site.api.espn.com/apis/site/v2/sports/"+sportPath+"/"+leagueSlug+"/scoreboard?dates="+dateStr;
+  let out=[];
+  try{
+    const r=await hfetch("espn",url);
+    if(r.ok){
+      const d=await r.json();
+      out=(d.events||[]).map(ev=>{
+        const comp=(ev.competitions&&ev.competitions[0])||{};
+        const competitors=comp.competitors||[];
+        const home=competitors.find(c=>c.homeAway==="home")||{};
+        const away=competitors.find(c=>c.homeAway==="away")||{};
+        const st=(ev.status&&ev.status.type)||{};
+        return {id:ev.id||(sportPath+leagueSlug+dateStr+competitors.length),date:ev.date||comp.date||"",
+          home:(home.team&&(home.team.shortDisplayName||home.team.displayName))||"Home",
+          away:(away.team&&(away.team.shortDisplayName||away.team.displayName))||"Away",
+          homeScore:home.score!=null?String(home.score):null,
+          awayScore:away.score!=null?String(away.score):null,
+          state:st.state||"",detail:st.shortDetail||st.detail||""};
+      });
+    }
+  }catch(_){}
+  cset(key,out);return out;
+}
+async function loadSportComps(run){
+  for(const comp of SPORT_COMPETITIONS){
+    if(run!==loadRun)return;
+    const events=[];
+    for(const d of W.days){
+      if(run!==loadRun)return;
+      try{events.push(...await espnScoreboard(comp.sport,comp.league,d.replace(/-/g,"")));}catch(_){}
+    }
+    S.sport[comp.key]=events;renderSportSoon();
+  }
+}
+async function loadCricketWC(run){
+  const key=S.settings.cricket.trim();
+  if(!key){S.cricketEvents=[];S.errors.cricket="";return;}
+  try{
+    const ck="cricket:current";let d=cget(ck,10*60e3);
+    if(!d){
+      const r=await hfetch("cricket","https://api.cricapi.com/v1/currentMatches?apikey="+encodeURIComponent(key)+"&offset=0");
+      d=await r.json();
+      if(d&&d.status==="failure"){const msg=String(d.message||"");throw new KeyError("cricket",/invalid|key/i.test(msg)?"CricketData.org didn't accept your key. Check it in Settings.":"CricketData.org: "+(msg||"couldn't load matches."));}
+      cset(ck,d);
+    }
+    if(run!==loadRun)return;
+    const matches=(d&&d.data)||[];
+    S.cricketEvents=matches.filter(m=>{
+      if(!/world cup/i.test(m&&m.name||""))return false;
+      const t=Date.parse(m.dateTimeGMT||m.date||"");
+      if(isNaN(t))return true;
+      return inWeek(new Date(t).toISOString());
+    });
+    S.errors.cricket="";
+  }catch(e){S.cricketEvents=[];S.errors.cricket=e instanceof KeyError?e.message:"Couldn't reach CricketData.org just now.";}
+  renderSportSoon();
+}
+async function loadSportData(run){
+  S.sportLoading=true;
+  await Promise.all([loadSportComps(run),loadCricketWC(run)]);
+  if(run!==loadRun)return;
+  S.sportLoading=false;renderSportSoon();renderKeyNotice();
 }
 
 /* ================= model ================= */
@@ -485,10 +579,56 @@ function renderKeyNotice(){
   if(!S.settings.tmdb&&!S.settings.omdb)msgs.push("Add your free TMDB and OMDb keys in Settings to switch on the trending list, IMDb ratings and suggestions.");
   if(S.errors.tmdb)msgs.push(S.errors.tmdb);
   if(S.errors.omdb)msgs.push(S.errors.omdb);
+  if(S.errors.cricket)msgs.push(S.errors.cricket);
   n.hidden=!msgs.length;n.textContent=msgs.join(" ");
 }
-function render(){renderBoard();renderOff();renderPicks();renderKeyNotice();}
+function sportRow(ev){
+  const live=ev.state==="in";
+  const hasScore=ev.homeScore!=null&&ev.awayScore!=null&&ev.state!=="pre";
+  let when;try{when=ev.date?fmtWhen(ev.date):"";}catch(_){when=""}
+  return el("div",{class:"sport-row"+(live?" live":"")},
+    el("span",{class:"sport-time"},when||"TBC"),
+    live?el("span",{class:"tag live"},"LIVE"):null,
+    el("span",{class:"sport-teams"},ev.home+" vs "+ev.away),
+    hasScore?el("span",{class:"sport-score"},ev.homeScore+" – "+ev.awayScore):null,
+    ev.detail?el("span",{class:"sport-status"},ev.detail):null);
+}
+function cricketRow(m){
+  const live=!!m.matchStarted&&!m.matchEnded;
+  let when="";try{const t=Date.parse(m.dateTimeGMT||m.date||"");if(!isNaN(t))when=fmtWhen(new Date(t).toISOString());}catch(_){}
+  return el("div",{class:"sport-row"+(live?" live":"")},
+    el("span",{class:"sport-time"},when||"TBC"),
+    live?el("span",{class:"tag live"},"LIVE"):null,
+    el("span",{class:"sport-teams"},m.name||"Match"),
+    m.status?el("span",{class:"sport-status"},m.status):null);
+}
+function renderSport(){
+  const box=$("#sportList");if(!box)return;
+  const blocks=[];
+  SPORT_COMPETITIONS.forEach(comp=>{
+    const events=(S.sport[comp.key]||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+    if(!events.length)return;
+    blocks.push(el("div",{class:"sport-group"},
+      el("div",{class:"sport-group-h"},el("h3",null,comp.name),el("a",{class:"linkbtn",href:watchLink(comp.name),target:"_blank",rel:"noopener"},"Which channel? ↗")),
+      ...events.map(sportRow)));
+  });
+  const cricketOn=!!S.settings.cricket.trim();
+  if(cricketOn){
+    const cricket=S.cricketEvents||[];
+    const cricketKids=cricket.length?cricket.map(cricketRow):[el("div",{class:"hint"},S.sportLoading?"Loading…":(S.errors.cricket||"No Cricket World Cup matches found right now."))];
+    blocks.push(el("div",{class:"sport-group"},
+      el("div",{class:"sport-group-h"},el("h3",null,"Cricket World Cup"),el("a",{class:"linkbtn",href:watchLink("Cricket World Cup"),target:"_blank",rel:"noopener"},"Which channel? ↗")),
+      ...cricketKids));
+  }
+  if(!blocks.length){
+    box.replaceChildren(el("div",{class:"hint"},S.sportLoading?"Loading fixtures…":("No Premier League, Champions League, World Cup or NBA fixtures this week."+(cricketOn?"":" Add a free CricketData.org key in Settings to include the Cricket World Cup."))));
+    return;
+  }
+  box.replaceChildren(...blocks);
+}
+function render(){renderBoard();renderOff();renderPicks();renderSport();renderKeyNotice();}
 let rT=null;const renderSoon=()=>{clearTimeout(rT);rT=setTimeout(render,120);};
+let rST=null;const renderSportSoon=()=>{clearTimeout(rST);rST=setTimeout(renderSport,120);};
 
 /* ================= loading ================= */
 function mergeShow(s){if(s)S.shows[s.id]=Object.assign({},S.shows[s.id]||{},s);}
@@ -496,9 +636,10 @@ function mergeFull(f){if(!f||!f.show)return;mergeShow(f.show);S.full[f.show.id]=
 let loadRun=0;
 async function loadAll(force){
   const run=++loadRun;S.loading=true;
-  if(force){for(const k in cache){if(k.startsWith("sch:")||k.startsWith("full:")||k.startsWith("ss:")||k==="tmdb:trend")delete cache[k];}saveCache();}
+  if(force){for(const k in cache){if(k.startsWith("sch:")||k.startsWith("full:")||k.startsWith("ss:")||k==="tmdb:trend"||k.startsWith("sport:")||k==="cricket:current")delete cache[k];}saveCache();}
   $("#weekLabel").textContent=fmtDay(W.days[0],{weekday:"short",day:"numeric",month:"short"})+" – "+fmtDay(W.days[6],{weekday:"short",day:"numeric",month:"short",year:"numeric"});
   render();
+  loadSportData(run);
   // 1. trending (fast, independent host)
   const trendP=(async()=>{try{const t=await tmdbTrending();S.errors.tmdb="";return t||[];}catch(e){S.errors.tmdb=e instanceof KeyError?e.message:"Couldn't reach TMDB, so the trending list is missing this time.";return [];}})();
   // 2. schedules: the day before the week starts through Sunday, US, UK and streaming
@@ -636,8 +777,8 @@ async function runSearch(){
 $("#addBtn").addEventListener("click",()=>openAdd(S.q||null));
 $("#addClose").addEventListener("click",()=>{$("#addPanel").hidden=true;});
 $("#addForm").addEventListener("submit",e=>{e.preventDefault();runSearch();});
-$("#setBtn").addEventListener("click",()=>{const p=$("#settings");p.hidden=!p.hidden;$("#addPanel").hidden=true;$("#tmdbKey").value=S.settings.tmdb;$("#omdbKey").value=S.settings.omdb;});
-$("#saveKeys").addEventListener("click",()=>{S.settings.tmdb=$("#tmdbKey").value.trim();S.settings.omdb=$("#omdbKey").value.trim();saveSettings();S.errors={tmdb:"",omdb:""};S.imdb={};delete cache["tmdb:trend"];$("#setStatus").textContent="Saved. Reloading…";loadAll(false).then(()=>{$("#setStatus").textContent="";});});
+$("#setBtn").addEventListener("click",()=>{const p=$("#settings");p.hidden=!p.hidden;$("#addPanel").hidden=true;$("#tmdbKey").value=S.settings.tmdb;$("#omdbKey").value=S.settings.omdb;$("#cricketKey").value=S.settings.cricket;});
+$("#saveKeys").addEventListener("click",()=>{S.settings.tmdb=$("#tmdbKey").value.trim();S.settings.omdb=$("#omdbKey").value.trim();S.settings.cricket=$("#cricketKey").value.trim();saveSettings();S.errors={tmdb:"",omdb:"",cricket:""};S.imdb={};delete cache["tmdb:trend"];delete cache["cricket:current"];$("#setStatus").textContent="Saved. Reloading…";loadAll(false).then(()=>{$("#setStatus").textContent="";});});
 $("#clearCache").addEventListener("click",()=>{cache={};LS.set(K.cache,cache);$("#setStatus").textContent="Cleared. Reloading…";S.eps={};S.full={};loadAll(false).then(()=>{$("#setStatus").textContent="";});});
 $("#exportBtn").addEventListener("click",()=>{
   const blob=new Blob([JSON.stringify({app:"airdates-weekly",version:2,exported:new Date().toISOString(),ratings:S.ratings,mine:S.mine,watch:S.watch},null,2)],{type:"application/json"});
