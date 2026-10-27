@@ -124,6 +124,8 @@ select.sel{border:1px solid var(--line);background:var(--panel);border-radius:6p
 .sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 16px;border-bottom:1px solid var(--ink);padding-bottom:6px}
 .sec-h h2{font-size:26px;font-weight:900;font-stretch:75%;text-transform:uppercase;letter-spacing:.01em}
 .sec-h p{margin:0;color:var(--muted);font-size:13px}
+.sec-h-right{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 14px}
+.sec-toggle{white-space:nowrap}
 .cols{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:28px;align-items:start}
 @media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
 .tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px}
@@ -235,22 +237,22 @@ footer p{margin:0}
   </header>
 
   <section class="sec" aria-labelledby="wk">
-    <div class="sec-h"><h2 id="wk">On this week</h2><p>New episodes Monday to Sunday. <span class="approx" title="The listing gives a date but no release time">≈ time</span> means no time is listed.</p><div class="board-nav"><button class="btn ghost small" id="boardPrev" type="button" aria-label="Scroll to earlier days">‹ Prev</button><button class="btn ghost small" id="boardNext" type="button" aria-label="Scroll to later days">Next ›</button></div></div>
+    <div class="sec-h"><h2 id="wk">On this week</h2><div class="sec-h-right"><p>New episodes Monday to Sunday. <span class="approx" title="The listing gives a date but no release time">≈ time</span> means no time is listed.</p><div class="board-nav"><button class="btn ghost small" id="boardPrev" type="button" aria-label="Scroll to earlier days">‹ Prev</button><button class="btn ghost small" id="boardNext" type="button" aria-label="Scroll to later days">Next ›</button></div><button class="linkbtn sec-toggle" type="button" data-sec="board" aria-expanded="true">Hide</button></div></div>
     <div id="board"><div class="skeleton">Loading this week's schedule from TVmaze…</div></div>
   </section>
 
   <section class="sec" aria-labelledby="sport">
-    <div class="sec-h"><h2 id="sport">Live sport this week</h2><p>Premier League, Champions League, World Cup and NBA fixtures, from ESPN. No free source gives broadcast channels, so each group links out to check where to watch.</p></div>
+    <div class="sec-h"><h2 id="sport">Live sport this week</h2><div class="sec-h-right"><p>Premier League, Champions League, World Cup and NBA fixtures, from ESPN. No free source gives broadcast channels, so each group links out to check where to watch.</p><button class="linkbtn sec-toggle" type="button" data-sec="sport" aria-expanded="true">Hide</button></div></div>
     <div id="sportList"><div class="skeleton">Loading fixtures…</div></div>
   </section>
 
   <div class="cols">
     <section class="sec" aria-labelledby="off">
-      <div class="sec-h"><h2 id="off">No new episode this week</h2><p>Trending and saved shows with nothing new this week</p></div>
+      <div class="sec-h"><h2 id="off">No new episode this week</h2><div class="sec-h-right"><p>Trending and saved shows with nothing new this week</p><button class="linkbtn sec-toggle" type="button" data-sec="off" aria-expanded="true">Hide</button></div></div>
       <div id="offList"></div>
     </section>
     <section class="sec" aria-labelledby="sug">
-      <div class="sec-h"><h2 id="sug">Suggested for you</h2><p>Built from your star ratings</p></div>
+      <div class="sec-h"><h2 id="sug">Suggested for you</h2><div class="sec-h-right"><p>Built from your star ratings</p><button class="linkbtn sec-toggle" type="button" data-sec="picks" aria-expanded="true">Hide</button></div></div>
       <div id="picks"></div>
     </section>
   </div>
@@ -281,7 +283,7 @@ const yearOf=s=>s?+String(s).slice(0,4):0;
 /* ================= state ================= */
 const W=currentWeek();
 const S={
-  settings:Object.assign({tmdb:"",omdb:"",cricket:"",pop:"94",lang:"en"},LS.get(K.settings,{})),
+  settings:Object.assign({tmdb:"",omdb:"",cricket:"",pop:"94",lang:"en",hidden:{}},LS.get(K.settings,{})),
   ratings:LS.get(K.ratings,{}),          // key -> 1..10  (key = "t<tvmazeId>")
   mine:LS.get(K.mine,[]),                // [{id,name}] tvmaze ids
   watch:LS.get(K.watch,[]),              // [{id,name}] tvmaze ids, shows you plan to watch
@@ -803,6 +805,21 @@ document.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{S.
 $("#pop").value=S.settings.pop;$("#lang").value=S.settings.lang;
 $("#pop").addEventListener("change",e=>{S.settings.pop=e.target.value;saveSettings();render();loadRatings(loadRun);});
 $("#lang").addEventListener("change",e=>{S.settings.lang=e.target.value;saveSettings();loadAll(false);});
+
+/* ================= section hide/show ================= */
+const SECTIONS=[{key:"board",content:"#board"},{key:"sport",content:"#sportList"},{key:"off",content:"#offList"},{key:"picks",content:"#picks"}];
+function applySectionVisibility(){
+  SECTIONS.forEach(s=>{
+    const hide=!!S.settings.hidden[s.key];
+    const c=$(s.content);if(c)c.hidden=hide;
+    const btn=$('.sec-toggle[data-sec="'+s.key+'"]');
+    if(btn){btn.textContent=hide?"Show":"Hide";btn.setAttribute("aria-expanded",String(!hide));}
+  });
+}
+document.querySelectorAll(".sec-toggle").forEach(b=>b.addEventListener("click",()=>{
+  const k=b.dataset.sec;S.settings.hidden[k]=!S.settings.hidden[k];saveSettings();applySectionVisibility();
+}));
+applySectionVisibility();
 
 if(!S.settings.tmdb&&!S.settings.omdb){$("#settings").hidden=false;}
 if(!window.fetch){setStatus("This browser is too old to load the schedule.",true);}else loadAll(false);
